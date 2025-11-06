@@ -2,9 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>Dijkstra 算法演示 (Canvas版)</title>
+<title>Dijkstra 算法演示（安全版）</title>
 <style>
-body { font-family: 'Segoe UI', Arial; background: #f5f5f5; color:#333; margin: 20px; }
+body { font-family: 'Segoe UI', Arial; background:#f5f5f5; color:#333; margin:20px; }
 h1 { text-align:center; color:#4CAF50; }
 .container { max-width:900px; margin:0 auto; background:#fff; padding:20px; border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,0.1);}
 textarea { width:100%; height:120px; border-radius:5px; border:1px solid #ccc; padding:5px; font-family:monospace;}
@@ -17,8 +17,8 @@ button:hover { background:#45a049; }
 </head>
 <body>
 <div class="container">
-<h1>Dijkstra 算法演示 (Canvas版)</h1>
-<p>输入图（每行：from to weight，支持任意数字节点）：</p>
+<h1>Dijkstra 算法演示（安全版）</h1>
+<p>输入图（每行：from to weight）：</p>
 <textarea id="graphInput">0 1 2
 0 2 4
 1 2 1
@@ -36,25 +36,22 @@ button:hover { background:#45a049; }
 </div>
 
 <script>
-// 检查是否有负权边
+// 检查负权边
 function hasNegativeEdge(edges){
-    for(let e of edges){
-        if(Number(e[2])<0) return true;
-    }
-    return false;
+    return edges.some(e=>Number(e[2])<0);
 }
 
 // 最小堆
 class MinHeap {
-    constructor() { this.heap=[]; }
+    constructor(){ this.heap=[]; }
     push(item){ this.heap.push(item); this.bubbleUp(); }
     pop(){ const top=this.heap[0]; const end=this.heap.pop(); if(this.heap.length>0){this.heap[0]=end; this.sinkDown();} return top; }
     bubbleUp(){ let idx=this.heap.length-1; const e=this.heap[idx]; while(idx>0){ let p=Math.floor((idx-1)/2); if(e[0]>=this.heap[p][0]) break; this.heap[idx]=this.heap[p]; idx=p; } this.heap[idx]=e; }
-    sinkDown(){ let idx=0; const len=this.heap.length; const e=this.heap[0]; while(true){ let l=2*idx+1, r=2*idx+2, swap=null; if(l<len && this.heap[l][0]<e[0]) swap=l; if(r<len && this.heap[r][0]< (swap===null?e[0]:this.heap[l][0])) swap=r; if(swap===null) break; this.heap[idx]=this.heap[swap]; idx=swap; } this.heap[idx]=e; }
+    sinkDown(){ let idx=0; const len=this.heap.length; const e=this.heap[0]; while(true){ let l=2*idx+1,r=2*idx+2,swap=null; if(l<len && this.heap[l][0]<e[0]) swap=l; if(r<len && this.heap[r][0]<(swap===null?e[0]:this.heap[l][0])) swap=r; if(swap===null) break; this.heap[idx]=this.heap[swap]; idx=swap; } this.heap[idx]=e; }
     size(){ return this.heap.length; }
 }
 
-// Dijkstra 算法（堆优化）
+// Dijkstra
 function dijkstra(adj,start){
     const dist={},prev={},visited={};
     Object.keys(adj).forEach(n=>{ dist[n]=Infinity; prev[n]=null; visited[n]=false; });
@@ -74,42 +71,43 @@ function dijkstra(adj,start){
     return {dist,prev};
 }
 
-// Canvas 绘制图
+// 绘制 Canvas
 function drawGraphCanvas(nodes, edges, path){
     const canvas=document.getElementById('graphCanvas');
     const ctx=canvas.getContext('2d');
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    const positions={};
     const radius=20;
     const centerX=canvas.width/2, centerY=canvas.height/2;
+    const positions={};
+    const N=nodes.length;
     nodes.forEach((n,i)=>{
-        const angle=2*Math.PI*i/nodes.length;
+        const angle=2*Math.PI*i/N;
         const x=centerX + 250*Math.cos(angle);
         const y=centerY + 250*Math.sin(angle);
         positions[n]={x,y};
     });
 
-    // 画边
-    ctx.strokeStyle='#999'; ctx.lineWidth=2;
-    edges.forEach(e=>{
-        const from=positions[e.from], to=positions[e.to];
-        ctx.beginPath();
-        ctx.moveTo(from.x,from.y);
-        ctx.lineTo(to.x,to.y);
-        ctx.stroke();
-        // 权重标签
-        ctx.fillStyle='#000';
-        ctx.fillText(e.weight,(from.x+to.x)/2,(from.y+to.y)/2);
-    });
+    // 如果节点数小于20，绘制边
+    if(nodes.length<=20){
+        ctx.strokeStyle='#999'; ctx.lineWidth=2;
+        edges.forEach(e=>{
+            const from=positions[e.from], to=positions[e.to];
+            ctx.beginPath();
+            ctx.moveTo(from.x,from.y);
+            ctx.lineTo(to.x,to.y);
+            ctx.stroke();
+            ctx.fillStyle='#000';
+            ctx.fillText(e.weight,(from.x+to.x)/2,(from.y+to.y)/2);
+        });
+    }
 
-    // 画节点
+    // 绘制节点
     nodes.forEach(n=>{
         const {x,y}=positions[n];
         ctx.beginPath();
         ctx.arc(x,y,radius,0,2*Math.PI);
-        if(path.includes(n)) ctx.fillStyle='#FF5722';
-        else ctx.fillStyle='linear-gradient(135deg,#4CAF50,#81C784)';
+        ctx.fillStyle=path.includes(n)?'#FF5722':'#4CAF50';
         ctx.fill();
         ctx.strokeStyle='#333';
         ctx.stroke();
