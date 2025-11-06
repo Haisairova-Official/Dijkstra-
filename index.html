@@ -2,22 +2,22 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>Dijkstra 算法演示（安全版）</title>
+<title>Dijkstra 算法演示（重写安全版）</title>
 <style>
-body { font-family: 'Segoe UI', Arial; background:#f5f5f5; color:#333; margin:20px; }
+body { font-family:'Segoe UI',Arial; background:#f0f0f0; margin:20px; }
 h1 { text-align:center; color:#4CAF50; }
-.container { max-width:900px; margin:0 auto; background:#fff; padding:20px; border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,0.1);}
-textarea { width:100%; height:120px; border-radius:5px; border:1px solid #ccc; padding:5px; font-family:monospace;}
-input[type=number] { width:60px; padding:5px; margin-left:5px; border-radius:5px; border:1px solid #ccc;}
+.container { max-width:900px; margin:0 auto; background:#fff; padding:20px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.1);}
+textarea { width:100%; height:120px; border-radius:5px; border:1px solid #ccc; padding:5px; font-family:monospace; }
+input[type=number] { width:60px; padding:5px; margin-left:5px; border-radius:5px; border:1px solid #ccc; }
 button { background:#4CAF50; color:#fff; padding:8px 16px; border:none; border-radius:5px; cursor:pointer; font-size:14px; transition:0.2s; }
 button:hover { background:#45a049; }
 #graphCanvas { display:block; margin:20px auto; background:#fafafa; border-radius:10px; border:1px solid #ccc; }
-#result { white-space: pre-wrap; margin-top:10px; background:#f0f0f0; padding:10px; border-radius:5px;}
+#result { white-space: pre-wrap; margin-top:10px; background:#f0f0f0; padding:10px; border-radius:5px; }
 </style>
 </head>
 <body>
 <div class="container">
-<h1>Dijkstra 算法演示（安全版）</h1>
+<h1>Dijkstra 算法演示（重写版）</h1>
 <p>输入图（每行：from to weight）：</p>
 <textarea id="graphInput">0 1 2
 0 2 4
@@ -36,22 +36,22 @@ button:hover { background:#45a049; }
 </div>
 
 <script>
-// 检查负权边
+// 检测负权边
 function hasNegativeEdge(edges){
     return edges.some(e=>Number(e[2])<0);
 }
 
 // 最小堆
-class MinHeap {
+class MinHeap{
     constructor(){ this.heap=[]; }
     push(item){ this.heap.push(item); this.bubbleUp(); }
     pop(){ const top=this.heap[0]; const end=this.heap.pop(); if(this.heap.length>0){this.heap[0]=end; this.sinkDown();} return top; }
-    bubbleUp(){ let idx=this.heap.length-1; const e=this.heap[idx]; while(idx>0){ let p=Math.floor((idx-1)/2); if(e[0]>=this.heap[p][0]) break; this.heap[idx]=this.heap[p]; idx=p; } this.heap[idx]=e; }
-    sinkDown(){ let idx=0; const len=this.heap.length; const e=this.heap[0]; while(true){ let l=2*idx+1,r=2*idx+2,swap=null; if(l<len && this.heap[l][0]<e[0]) swap=l; if(r<len && this.heap[r][0]<(swap===null?e[0]:this.heap[l][0])) swap=r; if(swap===null) break; this.heap[idx]=this.heap[swap]; idx=swap; } this.heap[idx]=e; }
+    bubbleUp(){ let idx=this.heap.length-1; const e=this.heap[idx]; while(idx>0){ let p=Math.floor((idx-1)/2); if(e[0]>=this.heap[p][0]) break; this.heap[idx]=e; idx=p; } this.heap[idx]=e; }
+    sinkDown(){ let idx=0,len=this.heap.length; const e=this.heap[0]; while(true){ let l=2*idx+1,r=2*idx+2,swap=null; if(l<len && this.heap[l][0]<e[0]) swap=l; if(r<len && this.heap[r][0]<(swap===null?e[0]:this.heap[l][0])) swap=r; if(swap===null) break; this.heap[idx]=this.heap[swap]; idx=swap; } this.heap[idx]=e; }
     size(){ return this.heap.length; }
 }
 
-// Dijkstra
+// Dijkstra 算法
 function dijkstra(adj,start){
     const dist={},prev={},visited={};
     Object.keys(adj).forEach(n=>{ dist[n]=Infinity; prev[n]=null; visited[n]=false; });
@@ -72,7 +72,7 @@ function dijkstra(adj,start){
 }
 
 // 绘制 Canvas
-function drawGraphCanvas(nodes, edges, path){
+function drawGraph(nodes, edges, path){
     const canvas=document.getElementById('graphCanvas');
     const ctx=canvas.getContext('2d');
     ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -88,7 +88,7 @@ function drawGraphCanvas(nodes, edges, path){
         positions[n]={x,y};
     });
 
-    // 如果节点数小于20，绘制边
+    // 小图绘制边，大图不绘制全部边
     if(nodes.length<=20){
         ctx.strokeStyle='#999'; ctx.lineWidth=2;
         edges.forEach(e=>{
@@ -117,6 +117,7 @@ function drawGraphCanvas(nodes, edges, path){
     });
 }
 
+// 执行算法
 function runDijkstra(){
     const input=document.getElementById('graphInput').value.trim().split('\n');
     const edges=[],nodes=new Set();
@@ -151,7 +152,7 @@ function runDijkstra(){
     if(dist[end]===Infinity) result.textContent=`从 ${start} 到 ${end} 无路径`;
     else result.textContent=`最短路径: ${path.join(' -> ')}，距离: ${dist[end]}`;
 
-    drawGraphCanvas(nodeArr,edges,path);
+    drawGraph(nodeArr,edges,path);
 }
 </script>
 </body>
