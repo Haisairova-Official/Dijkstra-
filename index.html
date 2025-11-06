@@ -2,22 +2,27 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>Dijkstra 综合演示</title>
+<title>Dijkstra 算法演示</title>
 <style>
-body { font-family: Arial; margin: 20px; }
-#graph { position: relative; width: 600px; height: 600px; border:1px solid #ccc; margin-bottom:20px; }
-.node { width: 40px; height: 40px; border-radius:50%; background-color:#4CAF50; color:white; display:flex; justify-content:center; align-items:center; position:absolute; }
-.edge { position:absolute; width:2px; background-color:#000; transform-origin: top left; }
-.edge-label { position:absolute; background:#fff; padding:1px; border:1px solid #000; font-size:12px; }
-textarea { width:100%; height:100px; }
-button { margin-top:10px; }
-#result { white-space: pre-wrap; margin-top:10px; }
+body { font-family: 'Segoe UI', Arial; background: #f5f5f5; color:#333; margin: 20px; }
+h1 { text-align:center; color:#4CAF50; }
+.container { max-width:900px; margin:0 auto; background:#fff; padding:20px; border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,0.1);}
+textarea { width:100%; height:120px; border-radius:5px; border:1px solid #ccc; padding:5px; font-family:monospace;}
+input[type=number] { width:60px; padding:5px; margin-left:5px; border-radius:5px; border:1px solid #ccc;}
+button { background:#4CAF50; color:#fff; padding:8px 16px; border:none; border-radius:5px; cursor:pointer; font-size:14px; transition:0.2s; }
+button:hover { background:#45a049; }
+#graph { position: relative; width: 600px; height: 600px; border:1px solid #ccc; margin:20px auto; border-radius:10px; background: #fafafa; }
+.node { width:40px; height:40px; border-radius:50%; display:flex; justify-content:center; align-items:center; position:absolute; color:white; font-weight:bold; transition:0.3s; }
+.edge { position:absolute; width:2px; background-color:#999; transform-origin: top left; transition:0.3s; }
+.edge-label { position:absolute; background:#fff; padding:1px 3px; border:1px solid #999; border-radius:3px; font-size:12px; }
+#result { white-space: pre-wrap; margin-top:10px; background:#f0f0f0; padding:10px; border-radius:5px;}
+.highlight { background:#FF5722 !important; }
 </style>
 </head>
 <body>
-<h1>Dijkstra 算法综合演示</h1>
-
-<p>输入图（每行：from to weight）：</p>
+<div class="container">
+<h1>Dijkstra 算法可视化</h1>
+<p>输入图（每行：from to weight，支持任意数字节点）：</p>
 <textarea id="graphInput">0 1 2
 0 2 4
 1 2 1
@@ -27,14 +32,22 @@ button { margin-top:10px; }
 4 3 2
 4 5 5</textarea>
 
-<p>起点: <input type="number" id="startNode" value="0"></p>
-<p>终点: <input type="number" id="endNode" value="5"></p>
+<p>起点: <input type="number" id="startNode" value="0"> 终点: <input type="number" id="endNode" value="5"></p>
 <button onclick="runDijkstra()">计算最短路径</button>
 
 <div id="graph"></div>
 <pre id="result"></pre>
+</div>
 
 <script>
+// 检查是否有负权边
+function hasNegativeEdge(edges){
+    for(let e of edges){
+        if(Number(e[2])<0) return true;
+    }
+    return false;
+}
+
 // 最小堆
 class MinHeap {
     constructor() { this.heap=[]; }
@@ -45,18 +58,19 @@ class MinHeap {
     size(){ return this.heap.length; }
 }
 
-// Dijkstra算法
+// Dijkstra 算法（堆优化）
 function dijkstra(adj,start){
-    const dist={},prev={};
-    Object.keys(adj).forEach(n=>{ dist[n]=Infinity; prev[n]=null; });
+    const dist={},prev={},visited={};
+    Object.keys(adj).forEach(n=>{ dist[n]=Infinity; prev[n]=null; visited[n]=false; });
     dist[start]=0;
     const heap=new MinHeap(); heap.push([0,start]);
     while(heap.size()>0){
         const [d,u]=heap.pop();
-        if(d>dist[u]) continue;
+        if(visited[u]) continue;
+        visited[u]=true;
         (adj[u]||[]).forEach(({to,weight})=>{
             const alt=d+weight;
-            if(alt< (dist[to]===undefined?Infinity:dist[to]) ){
+            if(alt<dist[to]){
                 dist[to]=alt; prev[to]=u; heap.push([alt,to]);
             }
         });
@@ -64,7 +78,7 @@ function dijkstra(adj,start){
     return {dist,prev};
 }
 
-// 绘图模式
+// 绘制图形
 function drawGraph(nodes, edges, path){
     const graphDiv=document.getElementById('graph');
     graphDiv.innerHTML='';
@@ -80,6 +94,7 @@ function drawGraph(nodes, edges, path){
         const y=300+radius*Math.sin(angle)-20;
         nodeDiv.style.left=x+'px';
         nodeDiv.style.top=y+'px';
+        nodeDiv.style.background=`linear-gradient(135deg,#4CAF50,#81C784)`;
         graphDiv.appendChild(nodeDiv);
         positions[n]={x:x+20,y:y+20};
     });
@@ -100,26 +115,35 @@ function drawGraph(nodes, edges, path){
         label.innerText=e.weight;
         graphDiv.appendChild(label);
     });
-    // 高亮路径
-    path.forEach(n=>{ const nd=document.getElementById('node-'+n); if(nd) nd.style.backgroundColor='#FF5722'; });
+    path.forEach(n=>{ const nd=document.getElementById('node-'+n); if(nd) nd.classList.add('highlight'); });
 }
 
-// 主函数
 function runDijkstra(){
     const input=document.getElementById('graphInput').value.trim().split('\n');
-    const start=document.getElementById('startNode').value;
-    const end=document.getElementById('endNode').value;
-    const adj={}, nodes=new Set();
-    input.forEach(line=>{
+    const edges=[],nodes=new Set();
+    for(let line of input){
         const [f,t,w]=line.trim().split(/\s+/).map(Number);
+        edges.push([f,t,w]);
+        nodes.add(f); nodes.add(t);
+    }
+
+    if(hasNegativeEdge(edges)){
+        alert('警告：图中存在负权边，Dijkstra算法不适用！');
+        return;
+    }
+
+    const adj={};
+    edges.forEach(([f,t,w])=>{
         if(!adj[f]) adj[f]=[];
         adj[f].push({to:t,weight:w});
-        nodes.add(f); nodes.add(t);
     });
+
+    const start=document.getElementById('startNode').value;
+    const end=document.getElementById('endNode').value;
     const nodeArr=Array.from(nodes);
+
     const {dist,prev}=dijkstra(adj,start);
 
-    // 回溯路径
     const path=[];
     let cur=end;
     while(cur!==null){ path.unshift(cur); cur=prev[cur]; }
@@ -128,10 +152,9 @@ function runDijkstra(){
     if(dist[end]===Infinity) result.textContent=`从 ${start} 到 ${end} 无路径`;
     else result.textContent=`最短路径: ${path.join(' -> ')}，距离: ${dist[end]}`;
 
-    // 根据节点数量选择显示模式
     if(nodeArr.length<=100){
         document.getElementById('graph').style.display='block';
-        drawGraph(nodeArr,input.map(l=>{ const [f,t,w]=l.trim().split(/\s+/).map(Number); return {from:f,to:t,weight:w}; }), path);
+        drawGraph(nodeArr,edges,path);
     }else{
         document.getElementById('graph').style.display='none';
     }
