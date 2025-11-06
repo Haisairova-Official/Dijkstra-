@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>Dijkstra 算法演示</title>
+<title>Dijkstra 算法演示 (Canvas版)</title>
 <style>
 body { font-family: 'Segoe UI', Arial; background: #f5f5f5; color:#333; margin: 20px; }
 h1 { text-align:center; color:#4CAF50; }
@@ -11,17 +11,13 @@ textarea { width:100%; height:120px; border-radius:5px; border:1px solid #ccc; p
 input[type=number] { width:60px; padding:5px; margin-left:5px; border-radius:5px; border:1px solid #ccc;}
 button { background:#4CAF50; color:#fff; padding:8px 16px; border:none; border-radius:5px; cursor:pointer; font-size:14px; transition:0.2s; }
 button:hover { background:#45a049; }
-#graph { position: relative; width: 600px; height: 600px; border:1px solid #ccc; margin:20px auto; border-radius:10px; background: #fafafa; }
-.node { width:40px; height:40px; border-radius:50%; display:flex; justify-content:center; align-items:center; position:absolute; color:white; font-weight:bold; transition:0.3s; }
-.edge { position:absolute; width:2px; background-color:#999; transform-origin: top left; transition:0.3s; }
-.edge-label { position:absolute; background:#fff; padding:1px 3px; border:1px solid #999; border-radius:3px; font-size:12px; }
+#graphCanvas { display:block; margin:20px auto; background:#fafafa; border-radius:10px; border:1px solid #ccc; }
 #result { white-space: pre-wrap; margin-top:10px; background:#f0f0f0; padding:10px; border-radius:5px;}
-.highlight { background:#FF5722 !important; }
 </style>
 </head>
 <body>
 <div class="container">
-<h1>Dijkstra 算法可视化</h1>
+<h1>Dijkstra 算法演示 (Canvas版)</h1>
 <p>输入图（每行：from to weight，支持任意数字节点）：</p>
 <textarea id="graphInput">0 1 2
 0 2 4
@@ -35,7 +31,7 @@ button:hover { background:#45a049; }
 <p>起点: <input type="number" id="startNode" value="0"> 终点: <input type="number" id="endNode" value="5"></p>
 <button onclick="runDijkstra()">计算最短路径</button>
 
-<div id="graph"></div>
+<canvas id="graphCanvas" width="600" height="600"></canvas>
 <pre id="result"></pre>
 </div>
 
@@ -78,44 +74,49 @@ function dijkstra(adj,start){
     return {dist,prev};
 }
 
-// 绘制图形
-function drawGraph(nodes, edges, path){
-    const graphDiv=document.getElementById('graph');
-    graphDiv.innerHTML='';
+// Canvas 绘制图
+function drawGraphCanvas(nodes, edges, path){
+    const canvas=document.getElementById('graphCanvas');
+    const ctx=canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
     const positions={};
+    const radius=20;
+    const centerX=canvas.width/2, centerY=canvas.height/2;
     nodes.forEach((n,i)=>{
-        const nodeDiv=document.createElement('div');
-        nodeDiv.className='node';
-        nodeDiv.id='node-'+n;
-        nodeDiv.innerText=n;
         const angle=2*Math.PI*i/nodes.length;
-        const radius=250;
-        const x=300+radius*Math.cos(angle)-20;
-        const y=300+radius*Math.sin(angle)-20;
-        nodeDiv.style.left=x+'px';
-        nodeDiv.style.top=y+'px';
-        nodeDiv.style.background=`linear-gradient(135deg,#4CAF50,#81C784)`;
-        graphDiv.appendChild(nodeDiv);
-        positions[n]={x:x+20,y:y+20};
+        const x=centerX + 250*Math.cos(angle);
+        const y=centerY + 250*Math.sin(angle);
+        positions[n]={x,y};
     });
+
+    // 画边
+    ctx.strokeStyle='#999'; ctx.lineWidth=2;
     edges.forEach(e=>{
         const from=positions[e.from], to=positions[e.to];
-        const dx=to.x-from.x, dy=to.y-from.y, len=Math.sqrt(dx*dx+dy*dy);
-        const edgeDiv=document.createElement('div');
-        edgeDiv.className='edge';
-        edgeDiv.style.width=len+'px';
-        edgeDiv.style.left=from.x+'px';
-        edgeDiv.style.top=from.y+'px';
-        edgeDiv.style.transform=`rotate(${Math.atan2(dy,dx)}rad)`;
-        graphDiv.appendChild(edgeDiv);
-        const label=document.createElement('div');
-        label.className='edge-label';
-        label.style.left=(from.x+dx/2)+'px';
-        label.style.top=(from.y+dy/2)+'px';
-        label.innerText=e.weight;
-        graphDiv.appendChild(label);
+        ctx.beginPath();
+        ctx.moveTo(from.x,from.y);
+        ctx.lineTo(to.x,to.y);
+        ctx.stroke();
+        // 权重标签
+        ctx.fillStyle='#000';
+        ctx.fillText(e.weight,(from.x+to.x)/2,(from.y+to.y)/2);
     });
-    path.forEach(n=>{ const nd=document.getElementById('node-'+n); if(nd) nd.classList.add('highlight'); });
+
+    // 画节点
+    nodes.forEach(n=>{
+        const {x,y}=positions[n];
+        ctx.beginPath();
+        ctx.arc(x,y,radius,0,2*Math.PI);
+        if(path.includes(n)) ctx.fillStyle='#FF5722';
+        else ctx.fillStyle='linear-gradient(135deg,#4CAF50,#81C784)';
+        ctx.fill();
+        ctx.strokeStyle='#333';
+        ctx.stroke();
+        ctx.fillStyle='#fff';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(n,x,y);
+    });
 }
 
 function runDijkstra(){
@@ -152,12 +153,7 @@ function runDijkstra(){
     if(dist[end]===Infinity) result.textContent=`从 ${start} 到 ${end} 无路径`;
     else result.textContent=`最短路径: ${path.join(' -> ')}，距离: ${dist[end]}`;
 
-    if(nodeArr.length<=100){
-        document.getElementById('graph').style.display='block';
-        drawGraph(nodeArr,edges,path);
-    }else{
-        document.getElementById('graph').style.display='none';
-    }
+    drawGraphCanvas(nodeArr,edges,path);
 }
 </script>
 </body>
