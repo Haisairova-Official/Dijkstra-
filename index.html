@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Dijkstra 综合演示</title>
+<style>
+body { font-family: Arial; margin: 20px; }
+#graph { position: relative; width: 600px; height: 600px; border:1px solid #ccc; margin-bottom:20px; }
+.node { width: 40px; height: 40px; border-radius:50%; background-color:#4CAF50; color:white; display:flex; justify-content:center; align-items:center; position:absolute; }
+.edge { position:absolute; width:2px; background-color:#000; transform-origin: top left; }
+.edge-label { position:absolute; background:#fff; padding:1px; border:1px solid #000; font-size:12px; }
+textarea { width:100%; height:100px; }
+button { margin-top:10px; }
+#result { white-space: pre-wrap; margin-top:10px; }
+</style>
+</head>
+<body>
+<h1>Dijkstra 算法综合演示</h1>
+
+<p>输入图（每行：from to weight）：</p>
+<textarea id="graphInput">0 1 2
+0 2 4
+1 2 1
+1 3 7
+2 4 3
+3 5 1
+4 3 2
+4 5 5</textarea>
+
+<p>起点: <input type="number" id="startNode" value="0"></p>
+<p>终点: <input type="number" id="endNode" value="5"></p>
+<button onclick="runDijkstra()">计算最短路径</button>
+
+<div id="graph"></div>
+<pre id="result"></pre>
+
+<script>
+// 最小堆
+class MinHeap {
+    constructor() { this.heap=[]; }
+    push(item){ this.heap.push(item); this.bubbleUp(); }
+    pop(){ const top=this.heap[0]; const end=this.heap.pop(); if(this.heap.length>0){this.heap[0]=end; this.sinkDown();} return top; }
+    bubbleUp(){ let idx=this.heap.length-1; const e=this.heap[idx]; while(idx>0){ let p=Math.floor((idx-1)/2); if(e[0]>=this.heap[p][0]) break; this.heap[idx]=this.heap[p]; idx=p; } this.heap[idx]=e; }
+    sinkDown(){ let idx=0; const len=this.heap.length; const e=this.heap[0]; while(true){ let l=2*idx+1, r=2*idx+2, swap=null; if(l<len && this.heap[l][0]<e[0]) swap=l; if(r<len && this.heap[r][0]< (swap===null?e[0]:this.heap[l][0])) swap=r; if(swap===null) break; this.heap[idx]=this.heap[swap]; idx=swap; } this.heap[idx]=e; }
+    size(){ return this.heap.length; }
+}
+
+// Dijkstra算法
+function dijkstra(adj,start){
+    const dist={},prev={};
+    Object.keys(adj).forEach(n=>{ dist[n]=Infinity; prev[n]=null; });
+    dist[start]=0;
+    const heap=new MinHeap(); heap.push([0,start]);
+    while(heap.size()>0){
+        const [d,u]=heap.pop();
+        if(d>dist[u]) continue;
+        (adj[u]||[]).forEach(({to,weight})=>{
+            const alt=d+weight;
+            if(alt< (dist[to]===undefined?Infinity:dist[to]) ){
+                dist[to]=alt; prev[to]=u; heap.push([alt,to]);
+            }
+        });
+    }
+    return {dist,prev};
+}
+
+// 绘图模式
+function drawGraph(nodes, edges, path){
+    const graphDiv=document.getElementById('graph');
+    graphDiv.innerHTML='';
+    const positions={};
+    nodes.forEach((n,i)=>{
+        const nodeDiv=document.createElement('div');
+        nodeDiv.className='node';
+        nodeDiv.id='node-'+n;
+        nodeDiv.innerText=n;
+        const angle=2*Math.PI*i/nodes.length;
+        const radius=250;
+        const x=300+radius*Math.cos(angle)-20;
+        const y=300+radius*Math.sin(angle)-20;
+        nodeDiv.style.left=x+'px';
+        nodeDiv.style.top=y+'px';
+        graphDiv.appendChild(nodeDiv);
+        positions[n]={x:x+20,y:y+20};
+    });
+    edges.forEach(e=>{
+        const from=positions[e.from], to=positions[e.to];
+        const dx=to.x-from.x, dy=to.y-from.y, len=Math.sqrt(dx*dx+dy*dy);
+        const edgeDiv=document.createElement('div');
+        edgeDiv.className='edge';
+        edgeDiv.style.width=len+'px';
+        edgeDiv.style.left=from.x+'px';
+        edgeDiv.style.top=from.y+'px';
+        edgeDiv.style.transform=`rotate(${Math.atan2(dy,dx)}rad)`;
+        graphDiv.appendChild(edgeDiv);
+        const label=document.createElement('div');
+        label.className='edge-label';
+        label.style.left=(from.x+dx/2)+'px';
+        label.style.top=(from.y+dy/2)+'px';
+        label.innerText=e.weight;
+        graphDiv.appendChild(label);
+    });
+    // 高亮路径
+    path.forEach(n=>{ const nd=document.getElementById('node-'+n); if(nd) nd.style.backgroundColor='#FF5722'; });
+}
+
+// 主函数
+function runDijkstra(){
+    const input=document.getElementById('graphInput').value.trim().split('\n');
+    const start=document.getElementById('startNode').value;
+    const end=document.getElementById('endNode').value;
+    const adj={}, nodes=new Set();
+    input.forEach(line=>{
+        const [f,t,w]=line.trim().split(/\s+/).map(Number);
+        if(!adj[f]) adj[f]=[];
+        adj[f].push({to:t,weight:w});
+        nodes.add(f); nodes.add(t);
+    });
+    const nodeArr=Array.from(nodes);
+    const {dist,prev}=dijkstra(adj,start);
+
+    // 回溯路径
+    const path=[];
+    let cur=end;
+    while(cur!==null){ path.unshift(cur); cur=prev[cur]; }
+
+    const result=document.getElementById('result');
+    if(dist[end]===Infinity) result.textContent=`从 ${start} 到 ${end} 无路径`;
+    else result.textContent=`最短路径: ${path.join(' -> ')}，距离: ${dist[end]}`;
+
+    // 根据节点数量选择显示模式
+    if(nodeArr.length<=100){
+        document.getElementById('graph').style.display='block';
+        drawGraph(nodeArr,input.map(l=>{ const [f,t,w]=l.trim().split(/\s+/).map(Number); return {from:f,to:t,weight:w}; }), path);
+    }else{
+        document.getElementById('graph').style.display='none';
+    }
+}
+</script>
+</body>
+</html>
