@@ -2,158 +2,63 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>Dijkstra 算法演示（重写安全版）</title>
-<style>
-body { font-family:'Segoe UI',Arial; background:#f0f0f0; margin:20px; }
-h1 { text-align:center; color:#4CAF50; }
-.container { max-width:900px; margin:0 auto; background:#fff; padding:20px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,0.1);}
-textarea { width:100%; height:120px; border-radius:5px; border:1px solid #ccc; padding:5px; font-family:monospace; }
-input[type=number] { width:60px; padding:5px; margin-left:5px; border-radius:5px; border:1px solid #ccc; }
-button { background:#4CAF50; color:#fff; padding:8px 16px; border:none; border-radius:5px; cursor:pointer; font-size:14px; transition:0.2s; }
-button:hover { background:#45a049; }
-#graphCanvas { display:block; margin:20px auto; background:#fafafa; border-radius:10px; border:1px solid #ccc; }
-#result { white-space: pre-wrap; margin-top:10px; background:#f0f0f0; padding:10px; border-radius:5px; }
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dijkstra 可视化演示</title>
+
+<!-- 引入样式 -->
+<link rel="stylesheet" href="style.css">
+
 </head>
 <body>
 <div class="container">
-<h1>Dijkstra 算法演示（重写版）</h1>
-<p>输入图（每行：from to weight）：</p>
-<textarea id="graphInput">0 1 2
-0 2 4
-1 2 1
-1 3 7
-2 4 3
-3 5 1
-4 3 2
-4 5 5</textarea>
+    <header>
+        <h1>迪杰斯特拉算法(Dijkstra)可视化演示</h1>
+        <p class="subtitle">点击画布添加节点，连接节点创建边，再运行算法查看动态过程。</p>
+    </header>
 
-<p>起点: <input type="number" id="startNode" value="0"> 终点: <input type="number" id="endNode" value="5"></p>
-<button onclick="runDijkstra()">计算最短路径</button>
+    <div class="main-content">
+        
+        <div class="canvas-container">
+            <canvas id="graphCanvas"></canvas>
+        </div>
 
-<canvas id="graphCanvas" width="600" height="600"></canvas>
-<pre id="result"></pre>
+        <div class="controls">
+            <div class="control-group">
+                <h2>操作</h2>
+                <div class="btn-group">
+                    <button id="addNodeBtn">添加节点</button>
+                    <button id="addEdgeBtn">添加边</button>
+                    <button id="runAlgorithmBtn" disabled>运行 Dijkstra</button>
+                    <button id="resetBtn">重置</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h2>设置</h2>
+                <label>起始节点</label>
+                <select id="startNode" disabled>
+                    <option value="">选择起始节点</option>
+                </select>
+
+                <label style="margin-top:10px;">边权重</label>
+                <input type="number" id="edgeWeight" min="1" value="5">
+            </div>
+
+            <div class="control-group">
+                <h2>图例</h2>
+                <div class="legend">
+                    <div class="legend-item"><div class="legend-color node-start"></div>起点</div>
+                    <div class="legend-item"><div class="legend-color node-visited"></div>已访问</div>
+                    <div class="legend-item"><div class="legend-color node-current"></div>当前节点</div>
+                    <div class="legend-item"><div class="legend-color node-unvisited"></div>未访问</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
 </div>
 
-<script>
-// 检测负权边
-function hasNegativeEdge(edges){
-    return edges.some(e=>Number(e[2])<0);
-}
-
-// 最小堆
-class MinHeap{
-    constructor(){ this.heap=[]; }
-    push(item){ this.heap.push(item); this.bubbleUp(); }
-    pop(){ const top=this.heap[0]; const end=this.heap.pop(); if(this.heap.length>0){this.heap[0]=end; this.sinkDown();} return top; }
-    bubbleUp(){ let idx=this.heap.length-1; const e=this.heap[idx]; while(idx>0){ let p=Math.floor((idx-1)/2); if(e[0]>=this.heap[p][0]) break; this.heap[idx]=e; idx=p; } this.heap[idx]=e; }
-    sinkDown(){ let idx=0,len=this.heap.length; const e=this.heap[0]; while(true){ let l=2*idx+1,r=2*idx+2,swap=null; if(l<len && this.heap[l][0]<e[0]) swap=l; if(r<len && this.heap[r][0]<(swap===null?e[0]:this.heap[l][0])) swap=r; if(swap===null) break; this.heap[idx]=this.heap[swap]; idx=swap; } this.heap[idx]=e; }
-    size(){ return this.heap.length; }
-}
-
-// Dijkstra 算法
-function dijkstra(adj,start){
-    const dist={},prev={},visited={};
-    Object.keys(adj).forEach(n=>{ dist[n]=Infinity; prev[n]=null; visited[n]=false; });
-    dist[start]=0;
-    const heap=new MinHeap(); heap.push([0,start]);
-    while(heap.size()>0){
-        const [d,u]=heap.pop();
-        if(visited[u]) continue;
-        visited[u]=true;
-        (adj[u]||[]).forEach(({to,weight})=>{
-            const alt=d+weight;
-            if(alt<dist[to]){
-                dist[to]=alt; prev[to]=u; heap.push([alt,to]);
-            }
-        });
-    }
-    return {dist,prev};
-}
-
-// 绘制 Canvas
-function drawGraph(nodes, edges, path){
-    const canvas=document.getElementById('graphCanvas');
-    const ctx=canvas.getContext('2d');
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-
-    const radius=20;
-    const centerX=canvas.width/2, centerY=canvas.height/2;
-    const positions={};
-    const N=nodes.length;
-    nodes.forEach((n,i)=>{
-        const angle=2*Math.PI*i/N;
-        const x=centerX + 250*Math.cos(angle);
-        const y=centerY + 250*Math.sin(angle);
-        positions[n]={x,y};
-    });
-
-    // 小图绘制边，大图不绘制全部边
-    if(nodes.length<=20){
-        ctx.strokeStyle='#999'; ctx.lineWidth=2;
-        edges.forEach(e=>{
-            const from=positions[e.from], to=positions[e.to];
-            ctx.beginPath();
-            ctx.moveTo(from.x,from.y);
-            ctx.lineTo(to.x,to.y);
-            ctx.stroke();
-            ctx.fillStyle='#000';
-            ctx.fillText(e.weight,(from.x+to.x)/2,(from.y+to.y)/2);
-        });
-    }
-
-    // 绘制节点
-    nodes.forEach(n=>{
-        const {x,y}=positions[n];
-        ctx.beginPath();
-        ctx.arc(x,y,radius,0,2*Math.PI);
-        ctx.fillStyle=path.includes(n)?'#FF5722':'#4CAF50';
-        ctx.fill();
-        ctx.strokeStyle='#333';
-        ctx.stroke();
-        ctx.fillStyle='#fff';
-        ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText(n,x,y);
-    });
-}
-
-// 执行算法
-function runDijkstra(){
-    const input=document.getElementById('graphInput').value.trim().split('\n');
-    const edges=[],nodes=new Set();
-    for(let line of input){
-        const [f,t,w]=line.trim().split(/\s+/).map(Number);
-        edges.push([f,t,w]);
-        nodes.add(f); nodes.add(t);
-    }
-
-    if(hasNegativeEdge(edges)){
-        alert('警告：图中存在负权边，Dijkstra算法不适用！');
-        return;
-    }
-
-    const adj={};
-    edges.forEach(([f,t,w])=>{
-        if(!adj[f]) adj[f]=[];
-        adj[f].push({to:t,weight:w});
-    });
-
-    const start=document.getElementById('startNode').value;
-    const end=document.getElementById('endNode').value;
-    const nodeArr=Array.from(nodes);
-
-    const {dist,prev}=dijkstra(adj,start);
-
-    const path=[];
-    let cur=end;
-    while(cur!==null){ path.unshift(cur); cur=prev[cur]; }
-
-    const result=document.getElementById('result');
-    if(dist[end]===Infinity) result.textContent=`从 ${start} 到 ${end} 无路径`;
-    else result.textContent=`最短路径: ${path.join(' -> ')}，距离: ${dist[end]}`;
-
-    drawGraph(nodeArr,edges,path);
-}
-</script>
+<!-- 引入 JS -->
+<script src="script.js"></script>
 </body>
 </html>
