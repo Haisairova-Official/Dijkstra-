@@ -1,322 +1,157 @@
-// 图数据结构
-const graph = {
-    nodes: [],
-    edges: []
-};
+document.addEventListener("DOMContentLoaded", () => {
 
-// 算法状态
-let algorithmState = {
-    isRunning: false,
-    currentStep: 0,
-    visited: new Set(),
-    distances: {},
-    previous: {},
-    unvisited: new Set(),
-    currentNode: null,
-    startNode: null
-};
-
-// 操作模式
-let mode = 'none'; // 'addNode', 'addEdge', 'none'
+const graph = { nodes: [], edges: [] };
+let mode = "none";
 let selectedNodes = [];
 
-// 获取DOM元素
-const canvas = document.getElementById('graphCanvas');
-const ctx = canvas.getContext('2d');
-const addNodeBtn = document.getElementById('addNodeBtn');
-const addEdgeBtn = document.getElementById('addEdgeBtn');
-const runAlgorithmBtn = document.getElementById('runAlgorithmBtn');
-const resetBtn = document.getElementById('resetBtn');
-const startNodeSelect = document.getElementById('startNode');
-const edgeWeightInput = document.getElementById('edgeWeight');
+let algorithm = {
+    running: false,
+    dist: {},
+    prev: {},
+    unvisited: new Set(),
+    visited: new Set(),
+    current: null,
+    start: null
+};
 
-// 设置画布尺寸
-function resizeCanvas() {
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
-    drawGraph();
+const canvas = document.getElementById("graphCanvas");
+const ctx = canvas.getContext("2d");
+
+function resize() {
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    draw();
+}
+window.addEventListener("load", resize);
+window.addEventListener("resize", resize);
+
+class Node{
+    constructor(x,y,id){this.x=x;this.y=y;this.id=id;this.r=25;}
+    hit(x,y){return Math.hypot(this.x-x,this.y-y)<=this.r;}
+    draw(state){
+        let c = {start:"#00ff00",current:"#ff6b6b",visited:"#ffcc00",unvisited:"#4a90e2"}[state];
+        ctx.beginPath();
+        ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+        ctx.fillStyle=c; ctx.fill();
+        ctx.strokeStyle="#fff"; ctx.stroke();
+        ctx.fillStyle="#000"; ctx.font="bold 14px sans-serif";
+        ctx.textAlign="center"; ctx.textBaseline="middle";
+        ctx.fillText(this.id,this.x,this.y);
+    }
 }
 
-// 初始化
-window.addEventListener('load', () => {
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
+class Edge{
+    constructor(a,b,w){this.a=a;this.b=b;this.w=w;}
+    draw(){
+        ctx.strokeStyle="#fff"; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.moveTo(this.a.x,this.a.y); ctx.lineTo(this.b.x,this.b.y); ctx.stroke();
+        let mx=(this.a.x+this.b.x)/2, my=(this.a.y+this.b.y)/2;
+        ctx.fillStyle="#fff"; ctx.fillText(this.w,mx,my-10);
+    }
+}
+
+function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    graph.edges.forEach(e=>e.draw());
+    graph.nodes.forEach(n=>{
+        let st="unvisited";
+        if(n.id===algorithm.start) st="start";
+        if(n.id===algorithm.current) st="current";
+        if(algorithm.visited.has(n.id)) st="visited";
+        n.draw(st);
+    });
+}
+
+function addNode(x,y){
+    const id = graph.nodes.length ? graph.nodes.at(-1).id+1 : 0;
+    graph.nodes.push(new Node(x,y,id));
+    refreshStartSelect(); draw();
+}
+
+function addEdge(a,b,w){
+    if(graph.edges.some(e=>(e.a===a&&e.b===b)||(e.a===b&&e.b===a))) return;
+    graph.edges.push(new Edge(a,b,w));
+    draw();
+}
+
+function refreshStartSelect(){
+    const sel=document.getElementById("startNode");
+    sel.innerHTML='<option value="">未选择</option>';
+    graph.nodes.forEach(n=>{
+        sel.innerHTML+=`<option value="${n.id}">节点 ${n.id}</option>`;
+    });
+    sel.disabled = graph.nodes.length===0;
+    document.getElementById("runAlgorithmBtn").disabled = graph.nodes.length===0;
+}
+
+function neighbors(node){
+    return graph.edges.flatMap(e => e.a===node?e.b:(e.b===node?e.a:[]));
+}
+
+function initDijkstra(start){
+    algorithm.running=true;
+    algorithm.start=start;
+    algorithm.visited.clear();
+    algorithm.unvisited=new Set(graph.nodes.map(n=>n.id));
+    graph.nodes.forEach(n=>{
+        algorithm.dist[n.id]=n.id===start?0:Infinity;
+        algorithm.prev[n.id]=null;
+    });
+}
+
+function step(){
+    if(!algorithm.running) return;
+    let min = [...algorithm.unvisited].reduce((m,id)=>algorithm.dist[id]<algorithm.dist[m]?id:m, [...algorithm.unvisited][0]);
+    algorithm.current=min;
+    algorithm.unvisited.delete(min);
+    algorithm.visited.add(min);
+
+    neighbors(graph.nodes.find(n=>n.id===min)).forEach(nb=>{
+        if(algorithm.visited.has(nb.id)) return;
+        let w = graph.edges.find(e=>(e.a.id===min&&e.b.id===nb.id)||(e.b.id===min&&e.a.id===nb.id)).w;
+        let alt = algorithm.dist[min]+w;
+        if(alt<algorithm.dist[nb.id]) algorithm.dist[nb.id]=alt, algorithm.prev[nb.id]=min;
+    });
+
+    draw();
+    if(algorithm.unvisited.size===0) return showResult();
+    setTimeout(step,600);
+}
+
+function showResult(){
+    algorithm.running=false;
+    let msg="最短路径结果：\n\n";
+    graph.nodes.forEach(n=>{
+        let d=algorithm.dist[n.id];
+        if(d===Infinity){msg+=`节点 ${n.id}: 不可达\n`; return;}
+        let p=[],c=n.id;while(c!==null)p.unshift(c),c=algorithm.prev[c];
+        msg+=`节点 ${n.id}: 距离=${d} 路径=${p.join(" → ")}\n`;
+    });
+    alert(msg);
+}
+
+canvas.addEventListener("click",e=>{
+    let r=canvas.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+    if(mode==="addNode") return addNode(x,y);
+    if(mode==="addEdge"){
+        let hit = graph.nodes.find(n=>n.hit(x,y));
+        if(hit){selectedNodes.push(hit); if(selectedNodes.length===2){
+            addEdge(selectedNodes[0],selectedNodes[1], parseInt(edgeWeight.value)||1);
+            selectedNodes=[];
+        }}
+    }
 });
 
-// 节点类
-class Node {
-    constructor(x, y, id) {
-        this.x = x;
-        this.y = y;
-        this.id = id;
-        this.radius = 25;
-    }
-    
-    draw(ctx, state = 'unvisited') {
-        let color;
-        switch(state) {
-            case 'start': color = '#00ff00'; break;
-            case 'visited': color = '#ffcc00'; break;
-            case 'current': color = '#ff6b6b'; break;
-            default: color = '#4a90e2';
-        }
-        
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = color;
-        ctx.fill();
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        
-        ctx.fillStyle = '#000000';
-        ctx.font = 'bold 14px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(this.id.toString(), this.x, this.y);
-
-        if (state === 'start') {
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius + 5, 0, Math.PI * 2);
-            ctx.stroke();
-        }
-    }
-    
-    isPointInside(x, y) {
-        const dx = this.x - x;
-        const dy = this.y - y;
-        return Math.sqrt(dx * dx + dy * dy) <= this.radius;
-    }
-}
-
-// 边类
-class Edge {
-    constructor(node1, node2, weight) {
-        this.node1 = node1;
-        this.node2 = node2;
-        this.weight = weight;
-    }
-    
-    draw(ctx) {
-        const dx = this.node2.x - this.node1.x;
-        const dy = this.node2.y - this.node1.y;
-        const length = Math.sqrt(dx * dx + dy * dy);
-        const ux = dx / length;
-        const uy = dy / length;
-        
-        const startX = this.node1.x + ux * this.node1.radius;
-        const startY = this.node1.y + uy * this.node1.radius;
-        const endX = this.node2.x - ux * this.node2.radius;
-        const endY = this.node2.y - uy * this.node2.radius;
-
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        ctx.lineTo(endX, endY);
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        
-        const arrow = 10;
-        const angle = Math.atan2(dy, dx);
-        ctx.beginPath();
-        ctx.moveTo(endX, endY);
-        ctx.lineTo(endX - arrow * Math.cos(angle - Math.PI / 6), endY - arrow * Math.sin(angle - Math.PI / 6));
-        ctx.moveTo(endX, endY);
-        ctx.lineTo(endX - arrow * Math.cos(angle + Math.PI / 6), endY - arrow * Math.sin(angle + Math.PI / 6));
-        ctx.stroke();
-        
-        const midX = (startX + endX) / 2;
-        const midY = (startY + endY) / 2;
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '14px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(this.weight.toString(), midX, midY - 10);
-    }
-}
-
-// 绘制图
-function drawGraph() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    graph.edges.forEach(edge => edge.draw(ctx));
-
-    graph.nodes.forEach(node => {
-        let state = 'unvisited';
-        if (algorithmState.isRunning) {
-            if (node.id === algorithmState.startNode) state = 'start';
-            else if (node.id === algorithmState.currentNode) state = 'current';
-            else if (algorithmState.visited.has(node.id)) state = 'visited';
-        }
-        node.draw(ctx, state);
-    });
-}
-
-// 添加节点
-function addNode(x, y) {
-    const id = graph.nodes.length > 0 ? Math.max(...graph.nodes.map(n => n.id)) + 1 : 0;
-    graph.nodes.push(new Node(x, y, id));
-    updateStartNodeSelect();
-    drawGraph();
-}
-
-// 添加边
-function addEdge(a, b, weight) {
-    if (graph.edges.some(e => (e.node1.id === a.id && e.node2.id === b.id) || (e.node1.id === b.id && e.node2.id === a.id))) {
-        alert('这条边已存在');
-        return;
-    }
-    graph.edges.push(new Edge(a, b, weight));
-    drawGraph();
-}
-
-// 更新起点选择器
-function updateStartNodeSelect() {
-    startNodeSelect.innerHTML = '<option value="">选择起始节点</option>';
-    graph.nodes.forEach(node => {
-        let op = document.createElement('option');
-        op.value = node.id;
-        op.textContent = `节点 ${node.id}`;
-        startNodeSelect.appendChild(op);
-    });
-    startNodeSelect.disabled = graph.nodes.length === 0;
-    runAlgorithmBtn.disabled = graph.nodes.length === 0;
-}
-
-// 重置画布
-function resetCanvas() {
-    graph.nodes = [];
-    graph.edges = [];
-    algorithmState = {
-        isRunning: false,
-        currentStep: 0,
-        visited: new Set(),
-        distances: {},
-        previous: {},
-        unvisited: new Set(),
-        currentNode: null,
-        startNode: null
-    };
-    selectedNodes = [];
-    updateStartNodeSelect();
-    drawGraph();
-}
-
-// 初始化 Dijkstra
-function initDijkstra(startId) {
-    algorithmState = {
-        isRunning: true,
-        visited: new Set(),
-        distances: {},
-        previous: {},
-        unvisited: new Set(graph.nodes.map(n => n.id)),
-        currentNode: startId,
-        startNode: startId
-    };
-
-    graph.nodes.forEach(n => {
-        algorithmState.distances[n.id] = n.id === startId ? 0 : Infinity;
-        algorithmState.previous[n.id] = null;
-    });
-
-    drawGraph();
-}
-
-// 单步执行 Dijkstra
-function nextDijkstraStep() {
-    if (!algorithmState.isRunning || algorithmState.unvisited.size === 0) {
-        algorithmState.isRunning = false;
-        drawGraph();
-        showResult();
-        return;
-    }
-
-    let minNode = null;
-    let minDist = Infinity;
-    algorithmState.unvisited.forEach(id => {
-        if (algorithmState.distances[id] < minDist) {
-            minDist = algorithmState.distances[id];
-            minNode = id;
-        }
-    });
-
-    if (minNode === null) {
-        algorithmState.isRunning = false;
-        drawGraph();
-        showResult();
-        return;
-    }
-
-    algorithmState.currentNode = minNode;
-    algorithmState.visited.add(minNode);
-    algorithmState.unvisited.delete(minNode);
-
-    const neighbors = getNeighbors(graph.nodes.find(n => n.id === minNode));
-    neighbors.forEach(nb => {
-        const edge = graph.edges.find(e => (e.node1.id === minNode && e.node2.id === nb.id) || (e.node2.id === minNode && e.node1.id === nb.id));
-        if (!algorithmState.visited.has(nb.id)) {
-            const alt = algorithmState.distances[minNode] + edge.weight;
-            if (alt < algorithmState.distances[nb.id]) {
-                algorithmState.distances[nb.id] = alt;
-                algorithmState.previous[nb.id] = minNode;
-            }
-        }
-    });
-
-    drawGraph();
-    setTimeout(nextDijkstraStep, 600);
-}
-
-function getNeighbors(node) {
-    const neighbors = [];
-    graph.edges.forEach(e => {
-        if (e.node1.id === node.id) neighbors.push(e.node2);
-        else if (e.node2.id === node.id) neighbors.push(e.node1);
-    });
-    return neighbors;
-}
-
-function showResult() {
-    let out = "最短路径结果:\n\n";
-    graph.nodes.forEach(n => {
-        let d = algorithmState.distances[n.id];
-        if (d === Infinity) out += `节点 ${n.id}: 不可达\n`;
-        else {
-            let path = [];
-            let cur = n.id;
-            while (cur !== null) {
-                path.unshift(cur);
-                cur = algorithmState.previous[cur];
-            }
-            out += `节点 ${n.id}: 距离=${d}, 路径=${path.join(" → ")}\n`;
-        }
-    });
-    alert(out);
-}
-
-addNodeBtn.onclick = () => mode = 'addNode';
-addEdgeBtn.onclick = () => { mode = 'addEdge'; selectedNodes = []; };
-runAlgorithmBtn.onclick = () => {
-    const start = parseInt(startNodeSelect.value);
-    if (!isNaN(start)) initDijkstra(start), nextDijkstraStep();
+addNodeBtn.onclick=()=>mode="addNode";
+addEdgeBtn.onclick=()=>{mode="addEdge"; selectedNodes=[];};
+runAlgorithmBtn.onclick=()=>{
+    const id=parseInt(startNode.value);
+    if(isNaN(id))return;
+    initDijkstra(id); step();
 };
-resetBtn.onclick = resetCanvas;
+resetBtn.onclick=()=>{
+    graph.nodes=[]; graph.edges=[];
+    selectedNodes=[]; mode="none"; refreshStartSelect(); draw();
+};
 
-canvas.addEventListener('click', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left, y = e.clientY - rect.top;
-
-    if (mode === 'addNode') addNode(x, y);
-    else if (mode === 'addEdge') {
-        const target = graph.nodes.find(n => n.isPointInside(x, y));
-        if (target) {
-            selectedNodes.push(target);
-            if (selectedNodes.length === 2) {
-                addEdge(selectedNodes[0], selectedNodes[1], parseInt(edgeWeightInput.value) || 1);
-                selectedNodes = [];
-            }
-        }
-    }
 });
