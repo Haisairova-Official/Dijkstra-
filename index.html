@@ -2,65 +2,52 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dijkstra 可视化演示</title>
-<script src="script.js"></script>
-
-
-<!-- 引入样式 -->
+<title>迪杰斯特拉算法可视化演示</title>
 <link rel="stylesheet" href="style.css">
-
 </head>
 <body>
+
 <div class="container">
     <header>
-        <h1>迪杰斯特拉算法(Dijkstra)可视化演示</h1>
-        <p class="subtitle">点击画布添加节点，连接节点创建边，再运行算法查看动态过程。</p>
+        <h1>迪杰斯特拉算法可视化</h1>
+        <p class="subtitle">点击画布添加节点，连接节点创建边，选择起点后运行最短路径算法。</p>
     </header>
 
-    <div class="main-content">
-        
-        <div class="canvas-container">
+    <div class="main">
+        <div class="canvas-wrap">
             <canvas id="graphCanvas"></canvas>
         </div>
 
-        <div class="controls">
-            <div class="control-group">
+        <div class="panel">
+            <div class="group">
                 <h2>操作</h2>
-                <div class="btn-group">
-                    <button id="addNodeBtn">添加节点</button>
-                    <button id="addEdgeBtn">添加边</button>
-                    <button id="runAlgorithmBtn" disabled>运行 Dijkstra</button>
-                    <button id="resetBtn">重置</button>
-                </div>
+                <button id="addNodeBtn">添加节点</button>
+                <button id="addEdgeBtn">添加边</button>
+                <button id="runAlgorithmBtn" disabled>运行算法</button>
+                <button id="resetBtn">重置</button>
             </div>
 
-            <div class="control-group">
+            <div class="group">
                 <h2>设置</h2>
-                <label>起始节点</label>
+                <label>起点选择</label>
                 <select id="startNode" disabled>
-                    <option value="">选择起始节点</option>
+                    <option value="">未选择</option>
                 </select>
 
-                <label style="margin-top:10px;">边权重</label>
-                <input type="number" id="edgeWeight" min="1" value="5">
+                <label>边权重</label>
+                <input type="number" id="edgeWeight" value="5" min="1">
             </div>
 
-            <div class="control-group">
-                <h2>图例</h2>
-                <div class="legend">
-                    <div class="legend-item"><div class="legend-color node-start"></div>起点</div>
-                    <div class="legend-item"><div class="legend-color node-visited"></div>已访问</div>
-                    <div class="legend-item"><div class="legend-color node-current"></div>当前节点</div>
-                    <div class="legend-item"><div class="legend-color node-unvisited"></div>未访问</div>
-                </div>
+            <div class="legend">
+                <div><span class="color start"></span> 起点</div>
+                <div><span class="color current"></span> 当前节点</div>
+                <div><span class="color visited"></span> 已访问</div>
+                <div><span class="color unvisited"></span> 未访问</div>
             </div>
-
         </div>
     </div>
 </div>
 
-<!-- 引入 JS -->
 <script src="script.js"></script>
 </body>
 </html>
